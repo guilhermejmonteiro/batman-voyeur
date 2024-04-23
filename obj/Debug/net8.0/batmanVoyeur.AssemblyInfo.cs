@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("batmanVoyeur")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e53aba079750a999117b69f7b3102457defe1a52")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+69e14cf7b0330e3de7e25826900dd70e183e9f2c")]
 [assembly: System.Reflection.AssemblyProductAttribute("batmanVoyeur")]
 [assembly: System.Reflection.AssemblyTitleAttribute("batmanVoyeur")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

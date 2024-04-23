@@ -16,3 +16,4 @@
 /home/guilherme/batmanVoyeur/obj/Debug/net8.0/batmanVoyeur.pdb
 /home/guilherme/batmanVoyeur/obj/Debug/net8.0/batmanVoyeur.genruntimeconfig.cache
 /home/guilherme/batmanVoyeur/obj/Debug/net8.0/ref/batmanVoyeur.dll
+/home/guilherme/batmanVoyeur/obj/Debug/net8.0/batmanVoyeur.sourcelink.json
