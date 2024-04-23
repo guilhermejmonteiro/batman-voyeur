@@ -45,9 +45,13 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     if (message.Text is not { } messageText)
         return;
 
-    var chatId = message.Chat.Id;
+    string command = message.Text?.Split('@')[0];
 
-    string command = message.Text.Split(' ')[0].ToLower();
+    if (string.IsNullOrWhiteSpace(command) || !command.StartsWith("/"))
+        return;
+
+
+    var chatId = message.Chat.Id;
 
     switch (command)
     {
@@ -63,6 +67,9 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         case "/acorda":
             await HandleAcordaCommandAsync(message);
             break;
+        case "/yamato":
+            await HandleYamatoCommandAsync(message);
+            break;
     }    
 }
 
@@ -74,7 +81,7 @@ async Task HandleHelpCommandAsync(Message message)
 {
     await botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
-            text: "/help - mostra o curriculo do pai\n/kill - desce o vapo em algum muquira\n/w - chama os parça pro w",
+            text: "/help - mostra o curriculo do pai\n/kill - desce o vapo em algum muquirano\n/w - chama os parça pro w",
             replyToMessageId: message.MessageId,
             cancellationToken: default);
 }
@@ -113,6 +120,7 @@ async Task HandleKillCommandAsync(Message message)
 
     string killEmoji1 = "\U0001F91C";
     string killEmoji2 = "\U0001F4A5";
+
     Random rnd = new Random();
     string KillGif = KillResources.KillGifs[rnd.Next(KillResources.KillGifs.Length)];
 
@@ -148,6 +156,17 @@ async Task HandleAcordaCommandAsync(Message message)
     await botClient.SendVideoAsync(
             chatId: message.Chat.Id,
             video: InputFile.FromUri("http://i.imgur.com/ACFiRDK.mp4"),
+            supportsStreaming: true,
+            replyToMessageId: message.MessageId,
+            cancellationToken: default
+    );
+}
+
+async Task HandleYamatoCommandAsync(Message message)
+{
+    await botClient.SendVideoAsync(
+            chatId: message.Chat.Id,
+            video: InputFile.FromUri("https://i.imgur.com/RdR5DWs.mp4"),
             supportsStreaming: true,
             replyToMessageId: message.MessageId,
             cancellationToken: default
