@@ -45,13 +45,12 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     if (message.Text is not { } messageText)
         return;
 
-    string command = message.Text?.Split('@')[0];
-
-    if (string.IsNullOrWhiteSpace(command) || !command.StartsWith("/"))
-        return;
-
-
     var chatId = message.Chat.Id;
+
+    Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
+
+    string _command = message.Text.Split(' ')[0].ToLower();
+    string command = _command.Split('@')[0].ToLower();
 
     switch (command)
     {
@@ -69,6 +68,9 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
             break;
         case "/yamato":
             await HandleYamatoCommandAsync(message);
+            break;
+        case "/elbigodon":
+            await HandleBigodonCommandAsync(message);
             break;
     }    
 }
@@ -124,7 +126,7 @@ async Task HandleKillCommandAsync(Message message)
     Random rnd = new Random();
     string KillGif = KillResources.KillGifs[rnd.Next(KillResources.KillGifs.Length)];
 
-    if (taggedUser == "@batmanVoyeurBot")
+    if (taggedUser.Contains("batmanVoyeur"))
     {
         await botClient.SendPhotoAsync(
             chatId: message.Chat.Id,
@@ -171,6 +173,18 @@ async Task HandleYamatoCommandAsync(Message message)
             replyToMessageId: message.MessageId,
             cancellationToken: default
     );
+}
+
+async Task HandleBigodonCommandAsync(Message message)
+{
+    await botClient.SendPhotoAsync(
+            chatId: message.Chat.Id,
+            photo: InputFile.FromUri("https://i.imgur.com/d9WzkvL.jpeg"),
+            caption: "el bigodon",
+            replyToMessageId: message.MessageId,
+            cancellationToken: default
+        );
+    
 }
 
 #endregion
