@@ -3,55 +3,51 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
-public static class GifResources
+namespace BatBot
 {
-    private static Random _random = new Random();
-
-    // Method to add a GIF file path and its corresponding file identifier
-    public static void AddGif(string gifFilePath, string fileId, string jsonFilePath)
+    public static class GifResources
     {
-        Dictionary<string, string> gifs = LoadGifs(jsonFilePath);
-        gifs.Add(gifFilePath, fileId);
-        UpdateJsonFile(gifs, jsonFilePath);
-    }
+        private static Random _random = new Random();
 
-    // Method to get a random GIF file path
-    public static string GetRandomGif(string jsonFilePath)
-    {
-        Dictionary<string, string> gifs = LoadGifs(jsonFilePath);
-
-        if (gifs.Count == 0)
+        public static void AddGif(string gifFileId, string jsonFilePath)
         {
-            throw new InvalidOperationException("tem menos gif que agua no nordeste. bota mais ae");
+            List<string> gifIds = LoadGifIds(jsonFilePath);
+            gifIds.Add(gifFileId);
+            UpdateJsonFile(gifIds, jsonFilePath);
         }
 
-        int randomIndex = _random.Next(gifs.Count);
-        return gifs.Keys.ElementAt(randomIndex);
-    }
-
-    // Method to get the file identifier associated with a GIF file path
-    public static string GetFileId(string gifFilePath, string jsonFilePath)
-    {
-        Dictionary<string, string> gifs = LoadGifs(jsonFilePath);
-        return gifs.ContainsKey(gifFilePath) ? gifs[gifFilePath] : null;
-    }
-
-    private static Dictionary<string, string> LoadGifs(string jsonFilePath)
-    {
-        if (File.Exists(jsonFilePath))
+        public static string GetRandomGif(string jsonFilePath)
         {
-            string json = File.ReadAllText(jsonFilePath);
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-        }
-        else
-        {
-            return new Dictionary<string, string>();
-        }
-    }
+            List<string> gifIds = LoadGifIds(jsonFilePath);
 
-    private static void UpdateJsonFile(Dictionary<string, string> gifs, string jsonFilePath)
-    {
-        string json = JsonConvert.SerializeObject(gifs, Formatting.Indented);
-        File.WriteAllText(jsonFilePath, json);
+            if (gifIds.Count == 0)
+            {
+               return "nada";
+            }
+            else
+            {
+                int randomIndex = _random.Next(gifIds.Count);
+                return gifIds[randomIndex];
+            }
+        }
+
+        private static List<string> LoadGifIds(string jsonFilePath)
+        {
+            if (File.Exists(jsonFilePath))
+            {
+                string json = File.ReadAllText(jsonFilePath);
+                return JsonConvert.DeserializeObject<List<string>>(json);
+            }
+            else
+            {
+                return new List<string>();
+            }
+        }
+
+        private static void UpdateJsonFile(List<string> gifIds, string jsonFilePath)
+        {
+            string json = JsonConvert.SerializeObject(gifIds, Formatting.Indented);
+            File.WriteAllText(jsonFilePath, json);
+        }
     }
 }

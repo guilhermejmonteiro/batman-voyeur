@@ -8,41 +8,69 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using BatBot;
-using System.IO;
+using Newtonsoft.Json;
 
 #endregion
 
 #region Bot Start
-DateTime lastOnline = DateTime.MinValue;
-    lastOnline = DateTime.UtcNow;
 
-    string queryData = null;
+string workDir = Environment.CurrentDirectory;
+string workDirParent = Directory.GetParent(workDir).ToString();
+string projDir;
+if (workDirParent != null && workDirParent.EndsWith("Debug"))
+{
+    projDir = Directory.GetParent(workDir).Parent.Parent.FullName;
+}
+else
+{
+    projDir = workDir;
+}
+
+var batBot = new TelegramBotClient(AccessToken.BatToken);
+var extra = new ExtraCommands(batBot);
+
+
+bool debugMode = false;
+
+await HandleStartMessageAsync();
+
+long addGifRequesterId = 0;
+long addGifRequesterChatId = 0;
+int addGifInlineMessageId = 0;
+int addGifWaitForGifMessageId = 0;
+string addGifCategory = " ";
+
+// Dictionary<long, Dictionary<string, object>> userContexts = new Dictionary<long, Dictionary<string, object>>();
+
+using CancellationTokenSource cts = new ();
+
+ReceiverOptions receiverOptions = new ()
+{
+    AllowedUpdates = Array.Empty<UpdateType>(),
+    ThrowPendingUpdates =  true
+};
+
+batBot.StartReceiving(
+    updateHandler: HandleUpdateAsync,
+    pollingErrorHandler: HandlePollingErrorAsync,
+    receiverOptions: receiverOptions,
+    cancellationToken: cts.Token
+    );
+
+
+var me = await batBot.GetMeAsync();
+
+
+
+Console.WriteLine($"Start listening for @{me.Username}");
+
+
     
-    var batBot = new TelegramBotClient(AccessToken.BatToken);
-    var extra = new ExtraCommands(batBot);
-    
-    using CancellationTokenSource cts = new ();
-    
-    ReceiverOptions receiverOptions = new ()
-    {
-        AllowedUpdates = Array.Empty<UpdateType>()
-    };
-    
-    batBot.StartReceiving(
-        updateHandler: HandleUpdateAsync,
-        pollingErrorHandler: HandlePollingErrorAsync,
-        receiverOptions: receiverOptions,
-        cancellationToken: cts.Token);
-    
-    var me = await batBot.GetMeAsync();
-    
-    Console.WriteLine($"Start listening for @{me.Username}");
-    
-    await HandleStartMessageAsync();
-    
-    Console.ReadLine();
-    
-    cts.Cancel();
+Console.ReadLine();
+
+cts.Cancel();
+
+
 
 #endregion
 
@@ -50,12 +78,49 @@ DateTime lastOnline = DateTime.MinValue;
 
 async Task HandleUpdateAsync(ITelegramBotClient batBot, Update update, CancellationToken cancellationToken)
 {
+    if(update.CallbackQuery is { } callbackQuery)
+    {
+        if(callbackQuery.From.Id == addGifRequesterId)
+        {
+            await HandleAddGifCategoryAsync(callbackQuery.Data, callbackQuery.From.Username);
+        }
+        else
+        {
+            await batBot.SendTextMessageAsync(
+                chatId: addGifRequesterChatId,
+                text: $"@{callbackQuery.From.Username} espera tua vez porra",
+                cancellationToken: default
+            );
+        
+            return;
+        }
+    };
+
     if (update.Message is not { } message)
         return;
     
-    if (message.Date < lastOnline)
-        return;
-
+    if (message.Animation is { } gif)
+    {
+        if (message.ReplyToMessage.MessageId ==  addGifWaitForGifMessageId)
+        {
+            if (message.From.Id == addGifRequesterId)
+            {
+                await HandleAddGifStore(gif.FileId);
+            }
+            else
+            {
+                await batBot.SendTextMessageAsync(
+                    chatId: addGifRequesterChatId,
+                    text: $"@{message.From.Username} espera tua vez porra",
+                    cancellationToken: default
+                );
+            }
+            
+        }
+        else
+            return;
+    }
+    
     if (message.Text is not { } messageText)
         return;
 
@@ -65,7 +130,6 @@ async Task HandleUpdateAsync(ITelegramBotClient batBot, Update update, Cancellat
 
     string _command = message.Text.Split(' ')[0].ToLower();
     string command = _command.Split('@')[0].ToLower();
-
     switch (command)
     {
         case "/help":
@@ -78,7 +142,7 @@ async Task HandleUpdateAsync(ITelegramBotClient batBot, Update update, Cancellat
             await HandleKillCommandAsync(message);
             break;
         case "/addgif":
-            await HandleAddGifCommandAsync(message, update);
+            await HandleAddGifCommandAsync(message);
             break;
         default:
             await extra.HandleHiddenCommandsAsync(message, command);
@@ -94,7 +158,7 @@ async Task HandleHelpCommandAsync(Message message)
 {
     await batBot.SendTextMessageAsync(
             chatId: message.Chat.Id,
-            text: "/help - mostra o curriculo do pai\n/kill - desce o vapo em algum muquirano\n/w - chama os parça pro w",
+            text: "/help - mostra o curriculo do pai\n/kill @alguem - desce o vapo em algum muquirano\n/w - chama os parça pro w\n/addgif - adiciona um gif pra algum comando que manda gifs",
             replyToMessageId: message.MessageId,
             cancellationToken: default);
 }
@@ -110,7 +174,7 @@ async Task HandleWRCommandAsync(Message message)
 
     await batBot.SendTextMessageAsync(
                 chatId: message.Chat.Id,
-                text: $"{UserIDs.felipeUser}, {UserIDs.guilhermeUser}, {UserIDs.luisUser}, {UserIDs.marcosUser} e {UserIDs.batBotUser}, {randomChamada}",
+                text: $"{UserIDs.felipeUser}, {UserIDs.marcosUser}, {UserIDs.kaikyUser} e {UserIDs.batBotUser}, {randomChamada}",
                 parseMode: ParseMode.MarkdownV2,
                 cancellationToken: default);
 }
@@ -119,7 +183,7 @@ async Task HandleKillCommandAsync(Message message)
 {
     string[] commandParts = message.Text.Split(' ');
     
-    if (commandParts == null || commandParts.Length != 2 || !commandParts[1].StartsWith("@"))
+    if (commandParts.Length < 2)
     {
         await batBot.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -129,7 +193,7 @@ async Task HandleKillCommandAsync(Message message)
         return;
     }
 
-    string taggedUser = commandParts[1];
+    string taggedUser = string.Join(" ", commandParts, 1, commandParts.Length - 1);
     
     if (taggedUser == "@batmanVoyeurBot")
     {
@@ -147,15 +211,23 @@ async Task HandleKillCommandAsync(Message message)
         string killEmoji1 = "\U0001F91C";
         string killEmoji2 = "\U0001F4A5";
         
-        Random rnd = new Random();
-        string killGif = GifResources.GetRandomGif("kill_gifs");
+        string killGif = GifResources.GetRandomGif(Path.Combine(projDir, $"lists/gifs/kill_gifs.json"));
+
+        if (killGif == "nada")
+        {
+            await batBot.SendTextMessageAsync(
+                message.Chat.Id, "estoque mais vazio que dmc2",
+                message.MessageId, default);
+            return;
+        }
 
         string escapedCaption = EscapeMarkdownCharacters(
-            $"{message.From?.Username} {killEmoji1}{killEmoji2} {taggedUser}");
+            $"@{message.From?.Username} {killEmoji1}{killEmoji2} {taggedUser}");
 
+        await using Stream stream = System.IO.File.OpenRead(killGif);
         await batBot.SendAnimationAsync(
             chatId: message.Chat.Id,
-            animation: InputFile.FromFileId(killGif),
+            animation: InputFile.FromStream(stream, "kill.gif"),
             caption: escapedCaption,
             replyToMessageId: message.MessageId,
             parseMode: ParseMode.Markdown,
@@ -164,129 +236,93 @@ async Task HandleKillCommandAsync(Message message)
     }
 }
 
-async Task HandleAddGifCommandAsync(ITelegramBotClient bot, Message message)
-{
-        // Define callback data for each category
-        var categories = new List<string> { "Category1", "Category2", "Category3" };
-        var inlineKeyboard = new InlineKeyboardMarkup(categories
-            .Select(category => new[] { InlineKeyboardButton.WithCallbackData(category, category) }));
-
-        // Send categories as callback buttons
-        var sentMessage = await bot.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: "Choose a category:",
-            replyMarkup: inlineKeyboard,
-            cancellationToken: default);
-
-        // Store the sent message ID for later editing
-        var sentMessageId = sentMessage.MessageId;
-
-        // Store the chat ID for later use
-        var chatId = message.Chat.Id;
-
-        // Store the user ID for later use
-        var userId = message.From.Id;
-
-        // Store the message ID for later use
-        var messageId = message.MessageId;
-
-        // Save the chat ID and user ID for later use
-        // (You may want to store this information in a database for more permanent storage)
-        SaveUserChoice(chatId, userId, messageId);
-    }
-
-    void SaveUserChoice(long chatId, int userId, int messageId)
-    {
-        // Store the chat ID, user ID, and message ID in memory or a database for later use
-        // You can use these values to identify the message to edit and to track the user's choice
-    }
-
-    async Task HandleCallbackQueryAsync(ITelegramBotClient bot, CallbackQuery callbackQuery)
-    {
-        var category = callbackQuery.Data;
-
-        // Edit the original message to prompt the user to reply with a gif
-        await bot.EditMessageTextAsync(
-            chatId: callbackQuery.Message.Chat.Id,
-            messageId: callbackQuery.Message.MessageId,
-            text: "Reply to this message with the gif you want to add to the category: " + category,
-            cancellationToken: default);
-    }
-
-    async Task HandleUserReplyAsync(ITelegramBotClient bot, Message message)
-    {
-        // Ensure that the message is a reply to the bot's message
-        if (message.ReplyToMessage == null || message.ReplyToMessage.MessageId != messageId)
-            return;
-
-        // Ensure that the message contains a gif
-        if (message.Document == null || message.Document.MimeType != "image/gif")
+async Task HandleAddGifCommandAsync(Message message)
+{    
+    var replyMarkup = new InlineKeyboardMarkup(new[]
         {
-            await bot.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: "Please reply with a gif file.",
-                cancellationToken: default);
-            return;
-        }
+            new []
+            {
+                InlineKeyboardButton.WithCallbackData("Kill", "kill")
+            }
+        });
+            
+    var inlineMessage = await batBot.SendTextMessageAsync(
+        chatId: message.Chat.Id,
+        text: "seleciona uma categoria ae:",
+        replyToMessageId: message.MessageId,
+        replyMarkup: replyMarkup
+        );
 
-        // Download the gif
-        var gifFile = await bot.GetFileAsync(message.Document.FileId);
-
-        
-        // Save the gif to the appropriate category folder
-        var category = GetCategoryFromUserChoice(message.Chat.Id, message.From.Id);
-        var filePath = Path.Combine("gifs", "misc", category, $"{Guid.NewGuid().ToString()}.gif");
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
-        {
-            await bot.DownloadFileAsync(gifFile.FilePath, fileStream);
-        }
-
-        // Notify the user that the gif has been added
-        await bot.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: "Gif added to category: " + category,
-            cancellationToken: default);
-    }
-
-    // Helper method to get the category based on user choice
-    string GetCategoryFromUserChoice(long chatId, int userId)
-    {
-        // Retrieve the category based on the stored chat ID and user ID
-        // You'll need to implement your logic to retrieve the user's choice from where you stored it
-        // For simplicity, you can return a default category or handle errors appropriately
-        return "DefaultCategory";
+    addGifRequesterId = message.From.Id;
+    addGifInlineMessageId = inlineMessage.MessageId;
+    addGifRequesterChatId = message.Chat.Id;
 }
 
+async Task HandleAddGifCategoryAsync(string category, string requesterUsername)
+{    
+    addGifCategory = category;
 
+    await batBot.DeleteMessageAsync(addGifRequesterChatId, addGifInlineMessageId);
+    
+    var waitForGifMessage = await batBot.SendTextMessageAsync(
+        chatId: addGifRequesterChatId,
+        text: $"@{requesterUsername} responde essa mensagem aqui com o gif que tu quer adicionar ao comando {category}"
+        );
+    addGifWaitForGifMessageId = waitForGifMessage.MessageId;
+    
+}
 
-async Task HandleDebugStateAsync(Message message)
+async Task HandleAddGifStore(string gifFileId)
 {
+    string category = addGifCategory;
+    string jsonFilePath = Path.Combine(projDir, $"lists/gifs/{category}_gifs.json");
+    string gifFilePath = Path.Combine(projDir, $"misc/gifs/{category}/{category}{gifFileId}.gif");
+
+    await using Stream fileStream = System.IO.File.Create(gifFilePath);
+    
+    await batBot.GetInfoAndDownloadFileAsync(
+        fileId: gifFileId,
+        destination: fileStream,
+        cancellationToken: default
+    );
+
+    GifResources.AddGif(gifFilePath, jsonFilePath);
+
+    await batBot.DeleteMessageAsync(addGifRequesterChatId, addGifWaitForGifMessageId);
+
     await batBot.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: "ta em reforma man",
-            replyToMessageId: message.MessageId,
-            cancellationToken: default);
+        chatId: addGifRequesterChatId,
+        text: "só sucesso meu querido"
+    );
 }
 
-// async Task HandleStartMessageAsync()
-// {
-//     string songFilePath = @"/home/guilherme/batmanVoyeur/misc/music/Vordt of the Boreal Valley.mp3";
+async Task HandleStartMessageAsync()
+{    
+    string jsonLocation = Path.Combine(projDir, "lists/corno_das_trevas.json");
+    string jsonRetrieve = System.IO.File.ReadAllText(jsonLocation);
+    string jsonDeserialize = JsonConvert.DeserializeObject<string>(jsonRetrieve);
+    string[] attributes = jsonDeserialize.Split("@");
+    int welcomeMessageId = int.Parse(attributes[0]);
+    DateTime welcomeTimeSent = DateTime.Parse(attributes[1]);
+    var currentTime = DateTime.UtcNow;
+    TimeSpan difference = currentTime - welcomeTimeSent;
+    
+    if (welcomeMessageId != 0 && difference.Hours < 48)
+    {
+        await batBot.DeleteMessageAsync(UserIDs.manosChatId, welcomeMessageId);
+    }
 
-//     if (System.IO.File.Exists(songFilePath))
-//     {
-//         using (var stream = new FileStream(songFilePath, FileMode.Open))
-//         {
-//                 await batBot.SendAudioAsync(
-//                     chatId: -1001717718883,
-//                     audio: InputFile.FromStream(stream, "Vordt of the Boreal Valley.mp3")
-//                 );
-//         }
-//     }
-//     else
-//     {
-//         Console.WriteLine("nah nah b");
-//     }
-// }
+    await using Stream stream = System.IO.File.OpenRead($"{Path.Combine(projDir, "misc/videos/corno.mp4")}");
+    
+    var cornoMsg = await batBot.SendVideoAsync(
+                chatId: UserIDs.manosChatId,
+                video: InputFile.FromStream(stream: stream, fileName: "corno.mp4"),
+                caption: "tô on dnv"
+                );
+    
+    string jsonSave = JsonConvert.SerializeObject($"{cornoMsg.MessageId}@{cornoMsg.Date}");
+    System.IO.File.WriteAllText(jsonLocation, jsonSave);
+}
 
 #endregion
 
@@ -309,5 +345,7 @@ Task HandlePollingErrorAsync(ITelegramBotClient batBot, Exception exception, Can
     Console.WriteLine(ErrorMessage);
     return Task.CompletedTask;
 }
+
+
 
 #endregion

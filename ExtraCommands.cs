@@ -5,60 +5,35 @@ namespace BatBot
 {
     public class ExtraCommands
     {
-        private readonly ITelegramBotClient _batBot;
+        private readonly ITelegramBotClient batBot;
 
-        public ExtraCommands(ITelegramBotClient batBot)
+        public ExtraCommands(ITelegramBotClient _batBot)
         {
-            _batBot = batBot;
+            batBot = _batBot;
         }
         public async Task HandleHiddenCommandsAsync(Message message, string command)
         {
             switch (command){
                 case "/acorda":
-                await HandleAcordaCommandAsync(message);
-                break;
+                    await HandleExtrasCommandAsync(message, ExtraLinks.acorda);
+                    break;
                 case "/yamato":
-                await HandleYamatoCommandAsync(message);
-                break;
+                    await HandleExtrasCommandAsync(message, ExtraLinks.yamato);
+                    break;
                 case "/elbigodon":
-                await HandleBigodonCommandAsync(message);
-                break;
+                    await HandleExtrasCommandAsync(message, ExtraLinks.bigodon);
+                    break;
             }
         }
 
-        async Task HandleAcordaCommandAsync(Message message)
+        async Task HandleExtrasCommandAsync(Message message, string mediaLink)
         {
-            await _batBot.SendVideoAsync(
-                    chatId: message.Chat.Id,
-                    video: InputFile.FromUri("http://i.imgur.com/ACFiRDK.mp4"),
-                    supportsStreaming: true,
-                    replyToMessageId: message.MessageId,
-                    cancellationToken: default
+            await batBot.SendAnimationAsync(
+                chatId: message.Chat.Id,
+                animation: InputFile.FromUri(mediaLink),
+                replyToMessageId: message.MessageId,
+                cancellationToken: default
             );
-        }
-
-        async Task HandleYamatoCommandAsync(Message message)
-        {
-            await _batBot.SendVideoAsync(
-                    chatId: message.Chat.Id,
-                    video: InputFile.FromUri("https://i.imgur.com/RdR5DWs.mp4"),
-                    supportsStreaming: true,
-                    replyToMessageId: message.MessageId,
-                    cancellationToken: default
-            );
-        }
-
-        async Task HandleBigodonCommandAsync(Message message)
-        {
-            await _batBot.SendPhotoAsync(
-                    chatId: message.Chat.Id,
-                    photo: InputFile.FromUri("https://i.imgur.com/d9WzkvL.jpeg"),
-                    caption: "el bigodon",
-                    replyToMessageId: message.MessageId,
-                    cancellationToken: default
-                );
-            
         }
     }
-
 }
